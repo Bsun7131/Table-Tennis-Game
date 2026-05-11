@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Bsun Table Tennis</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    body {
+      margin: 0;
+      text-align: center;
+      font-family: Arial, sans-serif;
+      background: #222;
+      color: white;
+      overflow: hidden;
+    }
+
+    h1 {
+      margin: 8px 0 2px;
+      font-size: 24px;
+    }
+
+    p {
+      margin: 4px;
+    }
+
+    .developer {
+      color: #ddd;
+      font-size: 14px;
+    }
+
+    canvas {
+      background: #111;
+      border: 3px solid white;
+      max-width: 95vw;
+      max-height: 60vh;
+      touch-action: none;
+    }
+
+    button {
+      font-size: 22px;
+      padding: 10px 18px;
+      margin: 4px;
+      border: none;
+      border-radius: 10px;
+      background: #00c853;
+      color: white;
+    }
+
+    #restartBtn {
+      background: orange;
+      display: none;
+    }
+
+    #musicBtn {
+      background: #2196f3;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>Bsun Table Tennis</h1>
+  <p class="developer">Developer: Bisan Subba</p>
+  <p>PC: ↑ ↓ keys | Phone: buttons</p>
+  <p>You: <span id="playerScore">0</span> | Computer: <span id="computerScore">0</span></p>
+
+  <canvas id="game" width="500" height="350"></canvas>
+
+  <br>
+  <button id="upBtn">⬆️</button>
+  <button id="downBtn">⬇️</button>
+  <button id="musicBtn">Music: OFF</button>
+  <button id="restartBtn">Restart</button>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    const playerScoreText = document.getElementById("playerScore");
+    const computerScoreText = document.getElementById("computerScore");
+
+    const upBtn = document.getElementById("upBtn");
+    const downBtn = document.getElementById("downBtn");
+    const restartBtn = document.getElementById("restartBtn");
+    const musicBtn = document.getElementById("musicBtn");
+
+    let playerScore = 0;
+    let computerScore = 0;
+    let gameOver = false;
+
+    let moveUp = false;
+    let moveDown = false;
+
+    let audioContext;
+    let musicInterval;
+    let musicOn = false;
+
+    const player = {
+      x: 20,
+      y: 130,
+      width: 12,
+      height: 80,
+      speed: 6
+    };
+
+    const computer = {
+      x: 468,
+      y: 130,
+      width: 12,
+      height: 80,
+      speed: 4
+    };
+
+    const ball = {
+      x: 250,
+      y: 175,
+      size: 10,
+      speedX: 4,
+      speedY: 3
+    };
+
+    function setupAudio() {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    function playTone(freq, duration, type = "square", volume = 0.05) {
+      setupAudio();
+
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+
+      osc.type = type;
+      osc.frequency.value = freq;
+
+      gain.gain.value = volume;
+
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+
+      osc.start();
+      osc.stop(audioContext.currentTime + duration);
+    }
+
+    function playHitSound() {
+      playTone(420, 0.06, "square", 0.06);
+    }
+
+    function playScoreSound() {
+      playTone(700, 0.12, "sine", 0.08);
+      setTimeout(() => playTone(900, 0.12, "sine", 0.08), 120);
+    }
+
+    function playGameOverSound() {
+      playTone(200, 0.2, "sawtooth", 0.08);
+      setTimeout(() => playTone(120, 0.3, "sawtooth", 0.08), 200);
+    }
+
+    function startMusic() {
+      setupAudio();
+
+      if (musicInterval) clearInterval(musicInterval);
+
+      const melody = [262, 330, 392, 330, 294, 349, 440, 349];
+      let note = 0;
+
+      musicInterval = setInterval(() => {
+        if (!musicOn) return;
+
+        playTone(melody[note], 0.12, "triangle", 0.025);
+        note = (note + 1) % melody.length;
+      }, 220);
+    }
+
+    function toggleMusic() {
+      setupAudio();
+
+      musicOn = !musicOn;
+
+      if (musicOn) {
+        musicBtn.textContent = "Music: ON";
+        startMusic();
+      } else {
+        musicBtn.textContent = "Music: OFF";
+        clearInterval(musicInterval);
+      }
+    }
+
+    musicBtn.addEventListener("click", toggleMusic);
+
+    musicBtn.addEventListener("touchstart", function(e) {
+      e.preventDefault();
+      toggleMusic();
+    });
+
+    document.addEventListener("keydown", function(e) {
+      if (e.key === "ArrowUp") moveUp = true;
+      if (e.key === "ArrowDown") moveDown = true;
+    });
+
+    document.addEventListener("keyup", function(e) {
+      if (e.key === "ArrowUp") moveUp = false;
+      if (e.key === "ArrowDown") moveDown = false;
+    });
+
+    upBtn.addEventListener("touchstart", function(e) {
+      e.preventDefault();
+      moveUp = true;
+    });
+
+    upBtn.addEventListener("touchend", function(e) {
+      e.preventDefault();
+      moveUp = false;
+    });
+
+    downBtn.addEventListener("touchstart", function(e) {
+      e.preventDefault();
+      moveDown = true;
+    });
+
+    downBtn.addEventListener("touchend", function(e) {
+      e.preventDefault();
+      moveDown = false;
+    });
+
+    upBtn.addEventListener("mousedown", () => moveUp = true);
+    upBtn.addEventListener("mouseup", () => moveUp = false);
+
+    downBtn.addEventListener("mousedown", () => moveDown = true);
+    downBtn.addEventListener("mouseup", () => moveDown = false);
+
+    restartBtn.addEventListener("click", restartGame);
+
+    restartBtn.addEventListener("touchstart", function(e) {
+      e.preventDefault();
+      restartGame();
+    });
+
+    function drawRect(obj, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+    }
+
+    function drawBall() {
+      ctx.fillStyle = "white";
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, ball.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawCenterLine() {
+      ctx.strokeStyle = "#555";
+      ctx.setLineDash([8, 8]);
+      ctx.beginPath();
+      ctx.moveTo(canvas.width / 2, 0);
+      ctx.lineTo(canvas.width / 2, canvas.height);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function movePlayer() {
+      if (moveUp && player.y > 0) player.y -= player.speed;
+      if (moveDown && player.y + player.height < canvas.height) player.y += player.speed;
+    }
+
+    function moveComputer() {
+      const computerCenter = computer.y + computer.height / 2;
+
+      if (computerCenter < ball.y - 10) {
+        computer.y += computer.speed;
+      } else if (computerCenter > ball.y + 10) {
+        computer.y -= computer.speed;
+      }
+
+      if (computer.y < 0) computer.y = 0;
+      if (computer.y + computer.height > canvas.height) {
+        computer.y = canvas.height - computer.height;
+      }
+    }
+
+    function moveBall() {
+      ball.x += ball.speedX;
+      ball.y += ball.speedY;
+
+      if (ball.y - ball.size < 0 || ball.y + ball.size > canvas.height) {
+        ball.speedY *= -1;
+        playHitSound();
+      }
+
+      if (
+        ball.x - ball.size < player.x + player.width &&
+        ball.x > player.x &&
+        ball.y > player.y &&
+        ball.y < player.y + player.height
+      ) {
+        ball.speedX = Math.abs(ball.speedX) + 0.2;
+        playHitSound();
+      }
+
+      if (
+        ball.x + ball.size > computer.x &&
+        ball.x < computer.x + computer.width &&
+        ball.y > computer.y &&
+        ball.y < computer.y + computer.height
+      ) {
+        ball.speedX = -Math.abs(ball.speedX) - 0.2;
+        playHitSound();
+      }
+
+      if (ball.x < 0) {
+        computerScore++;
+        computerScoreText.textContent = computerScore;
+        playScoreSound();
+        resetBall();
+      }
+
+      if (ball.x > canvas.width) {
+        playerScore++;
+        playerScoreText.textContent = playerScore;
+        playScoreSound();
+        resetBall();
+      }
+
+      if (playerScore >= 5 || computerScore >= 5) {
+        gameOver = true;
+        restartBtn.style.display = "inline-block";
+        playGameOverSound();
+      }
+    }
+
+    function resetBall() {
+      ball.x = canvas.width / 2;
+      ball.y = canvas.height / 2;
+      ball.speedX = 4 * (Math.random() > 0.5 ? 1 : -1);
+      ball.speedY = 3 * (Math.random() > 0.5 ? 1 : -1);
+    }
+
+    function drawGameOver() {
+      ctx.fillStyle = "white";
+      ctx.font = "28px Arial";
+
+      if (playerScore >= 5) {
+        ctx.fillText("You Win!", 190, 175);
+      } else {
+        ctx.fillText("Computer Wins!", 150, 175);
+      }
+    }
+
+    function restartGame() {
+      playerScore = 0;
+      computerScore = 0;
+
+      playerScoreText.textContent = 0;
+      computerScoreText.textContent = 0;
+
+      player.y = 130;
+      computer.y = 130;
+
+      ball.x = 250;
+      ball.y = 175;
+      ball.speedX = 4 * (Math.random() > 0.5 ? 1 : -1);
+      ball.speedY = 3;
+
+      moveUp = false;
+      moveDown = false;
+      gameOver = false;
+
+      restartBtn.style.display = "none";
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      drawCenterLine();
+      drawRect(player, "lime");
+      drawRect(computer, "red");
+      drawBall();
+
+      if (!gameOver) {
+        movePlayer();
+        moveComputer();
+        moveBall();
+        requestAnimationFrame(gameLoop);
+      } else {
+        drawGameOver();
+      }
+    }
+
+    gameLoop();
+  </script>
+
+</body>
+</html>
