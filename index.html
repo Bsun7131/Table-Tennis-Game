@@ -119,8 +119,8 @@
       x: 250,
       y: 175,
       size: 10,
-      speedX: 4,
-      speedY: 3
+      speedX: 3,
+      speedY: 2
     };
 
     function setupAudio() {
@@ -336,8 +336,8 @@
     function resetBall() {
       ball.x = canvas.width / 2;
       ball.y = canvas.height / 2;
-      ball.speedX = 4 * (Math.random() > 0.5 ? 1 : -1);
-      ball.speedY = 3 * (Math.random() > 0.5 ? 1 : -1);
+      ball.speedX = 3 * (Math.random() > 0.5 ? 1 : -1);
+      ball.speedY = 2 * (Math.random() > 0.5 ? 1 : -1);
     }
 
     function drawGameOver() {
